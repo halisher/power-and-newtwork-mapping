@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+.link {
+  fill: none;
+  stroke: #666;
+  stroke-width: 1px;
+}
+
+#licensing {
+  fill: green;
+}
+
+.link.peru {
+  stroke: red;
+}
+
+.link.mexico {
+  stroke: green;
+}
+
+.link.usa {
+  stroke: blue;
+}
+
+.link.perucompany {
+  stroke: red;
+  stroke-dasharray: 0,2 1;
+}
+.link.mexicocompany {
+  stroke: green;
+  stroke-dasharray: 0,2 1;
+}
+.link.usacompany {
+  stroke: blue;
+  stroke-dasharray: 0,2 1;
+}
+
+circle {
+  fill: #ccc;
+  stroke: #333;
+  stroke-width: 2px;
+}
+
+text {
+  font: 10px sans-serif;
+  pointer-events: none;
+  text-shadow: 0 1px 0 #fff, 1px 0 0 #fff, 0 -1px 0 #fff, -1px 0 0 #fff;
+}
+
+</style>
+<body>
+<script src="//d3js.org/d3.v3.min.js"></script>
+<script>
+
+// http://blog.thomsonreuters.com/index.php/mobile-patent-suits-graphic-of-the-day/
+var links = [
+  {source: "Silver mines", target: "Antamina mine", type: "peru"},
+  {source: "Silver mines", target: "Cerro verde mine", type: "peru"},
+  {source: "Silver mines", target: "Resolution cooper", type: "usa"},
+  {source: "Silver mines", target: "Apumayo mine", type: "peru"},
+  {source: "Silver mines", target: "Toromocho mine", type: "peru"},
+  {source: "Silver mines", target: "Uchucchacua mine", type: "peru"},
+  {source: "Silver mines", target: "Inmaculada mine", type: "peru"},
+  {source: "Silver mines", target: "Saucito mine", type: "mexico"},
+  {source: "Silver mines", target: "Penasquito mine", type: "mexico"},
+  {source: "Silver mines", target: "San Julian mine", type: "mexico"},
+  {source: "Silver mines", target: "Fresnillo mine", type: "mexico"},
+  {source: "Silver mines", target: "Greens Creek", type: "usa"},
+  {source: "Antamina mine", target: "Teck", type: "perucompany"},
+  {source: "Antamina mine", target: "BHP", type: "perucompany"},
+  {source: "Antamina mine", target: "Glencore", type: "perucompany"},
+  {source: "Antamina mine", target: "Mitsubishi Corporation", type: "perucompany"},
+  {source: "Cerro verde mine", target: "Freeport", type: "perucompany"},
+  {source: "Cerro verde mine", target: "Sumitomo Metal mining", type: "perucompany"},
+  {source: "Cerro verde mine", target: "Peruvian investors", type: "perucompany"},
+  {source: "Resolution cooper", target: "Rio Tinto", type: "usacompany"},
+  {source: "Resolution cooper", target: "BHP", type: "usacompany"},
+  {source: "Apumayo mine", target: "Apumayo", type: "perucompany"},
+  {source: "Toromocho mine", target: "Minera chinalco Peru", type: "perucompany"},
+  {source: "Uchucchacua mine", target: "Buenaventura SAC", type: "perucompany"},
+  {source: "Inmaculada mine", target: "IMZ", type: "perucompany"},
+  {source: "Saucito mine", target: "Fresnillo Plc", type: "mexicocompany"},
+  {source: "Fresnillo mine", target: "Fresnillo Plc", type: "mexicocompany"},
+  {source: "San Julian mine", target: "Fresnillo Plc", type: "mexicocompany"},
+  {source: "Penasquito mine", target: "Newmont Goldcorp", type: "mexicocompany"},
+  {source: "Greens Creek", target: "Hecla", type: "usacompany"}
+];
+
+var nodes = {};
+
+// Compute the distinct nodes from the links.
+links.forEach(function(link) {
+  link.source = nodes[link.source] || (nodes[link.source] = {name: link.source});
+  link.target = nodes[link.target] || (nodes[link.target] = {name: link.target});
+});
+
+var width = 960,
+    height = 500;
+
+var force = d3.layout.force()
+    .nodes(d3.values(nodes))
+    .links(links)
+    .size([width, height])
+    .linkDistance(100)
+    .charge(-300)
+    .on("tick", tick)
+    .start();
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width)
+    .attr("height", height);
+
+// Per-type markers, as they don't inherit styles.
+svg.append("defs").selectAll("marker")
+    .data(["suit", "licensing", "resolved"])
+  .enter().append("marker")
+    .attr("id", function(d) { return d; })
+    .attr("viewBox", "0 -5 10 10")
+    .attr("refX", 15)
+    .attr("refY", -1.5)
+    .attr("markerWidth", 6)
+    .attr("markerHeight", 6)
+    .attr("orient", "auto")
+  .append("path")
+    .attr("d", "M0,-5L10,0L0,5");
+
+var path = svg.append("g").selectAll("path")
+    .data(force.links())
+  .enter().append("path")
+    .attr("class", function(d) { return "link " + d.type; })
+    .attr("marker-end", function(d) { return "url(#" + d.type + ")"; });
+
+var circle = svg.append("g").selectAll("circle")
+    .data(force.nodes())
+  .enter().append("circle")
+    .attr("r", 5)
+    .call(force.drag);
+
+var text = svg.append("g").selectAll("text")
+    .data(force.nodes())
+  .enter().append("text")
+    .attr("x", 9)
+    .attr("y", ".31em")
+    .text(function(d) { return d.name; });
+
+// Use elliptical arc path segments to doubly-encode directionality.
+function tick() {
+  path.attr("d", linkArc);
+  circle.attr("transform", transform);
+  text.attr("transform", transform);
+}
+
+function linkArc(d) {
+  var dx = d.target.x - d.source.x,
+      dy = d.target.y - d.source.y,
+      dr = Math.sqrt(dx * dx + dy * dy);
+  return "M" + d.source.x + "," + d.source.y + "A" + dr + "," + dr + " 0 0,1 " + d.target.x + "," + d.target.y;
+}
+
+function transform(d) {
+  return "translate(" + d.x + "," + d.y + ")";
+}
+
+</script>
